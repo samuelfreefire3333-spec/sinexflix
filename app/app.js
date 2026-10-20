@@ -200,9 +200,16 @@ const TMDB = {
 };
 
 /* ------------------------------------------------------------------ TV ao vivo */
+// Canais pagos não entram (só TV aberta e pública).
+const PAY_TV = /nick|comedy central|cartoon|disney|hbo|telecine|espn|sportv|premiere|discovery|warner|tnt|fox|universal tv|history|nat ?geo|animal planet|megapix|paramount|axn|sony|gloob|globonews|multishow|viva|combate|band sports|bandsports/i;
+// Canais que tocaram no navegador no último teste da equipe (a lista é reconferida no aparelho).
+const LIVE_SEED = new Set(["https://amazonsat.brasilstream.com.br/hls/amazonsat/index.m3u8","https://video09.logicahost.com.br/bemmaistv01/bemmaistv01/playlist.m3u8","https://cdn.live.br1.jmvstream.com/w/LVW-9359/LVW9359_XSyReL0QVf/playlist.m3u8","https://stmv5.samcast.com.br/claudio8701/claudio8701/playlist.m3u8","https://awtv.nuvemplay.live/hls/stream.m3u8","https://video05.logicahost.com.br/ararunatv/ararunatv/playlist.m3u8","https://5b33b873179a2.streamlock.net:1443/radiocamera/livestream/playlist.m3u8","https://stream.ichibansys.com:3230/hybrid/play.m3u8","https://5b33b873179a2.streamlock.net:1443/mastertv/livestream/playlist.m3u8","https://5b33b873179a2.streamlock.net:1443/catve2/catve2/playlist.m3u8","https://adylnet.streampool.net/10324/live/hls/Conecta/index.m3u8","https://fpa-gateway.tvcultura.com.br:8181/memfs/606caef0-a290-413d-9f1f-8fcdb3a73831.m3u8","https://stmv1.srvif.com/classique/classique/playlist.m3u8","https://br.conectmy.com.br/DespertarTV/index.m3u8","https://stream01.msolutionbrasil.com.br/hls/conectv/live.m3u8","https://59fb88a1b1108.streamlock.net/fonte/_definst_/fontetv/chunklist_w1224511652.m3u8","https://5c483b9d1019c.streamlock.net/falalitoraltv/falalitoraltv/playlist.m3u8","https://5c483b9d1019c.streamlock.net/8054/8054/playlist.m3u8","https://stmv1.srvif.com/gospelcartoon/gospelcartoon/playlist.m3u8","https://stmv1.srvif.com/gospelf/gospelf/playlist.m3u8","https://video01.brascast.com/d92ebb4f/d92ebb4f/playlist.m3u8","https://stmv1.srvif.com/loadingtv/loadingtv/playlist.m3u8","https://a.cdni.live/rodrigo2364/rodrigo2364/playlist.m3u8","https://stmv1.srvstm.com/sistema7933/sistema7933/playlist.m3u8","https://stmv1.transmissaodigital.com/blitstv/blitstv/playlist.m3u8","https://w2.manasat.com/kkids/smil:kkids.smil/playlist.m3u8","https://video04.logicahost.com.br/petloverstv/petloverstv/playlist.m3u8","https://strv.painelvox.top/plenitude/plenitude/playlist.m3u8","https://x1colegal.com/hls/stream.m3u8","https://cdn.live.br1.jmvstream.com/w/LVW-15748/LVW15748_Yed7yzLuRC/playlist.m3u8","https://6836041ea1117.streamlock.net/tvodia/tvodia/playlist.m3u8","https://cdn.live.br1.jmvstream.com/w/LVW-8719/LVW8719_AcLVAxWy5J/playlist.m3u8","https://video01.logicahost.com.br/websptv/websptv/playlist.m3u8","https://cdn.live.br1.jmvstream.com/webtv/AVJ-15235/playlist/playlist.m3u8","https://redebrasil.nuvemplay.live/hls/stream.m3u8","https://maystreaming.cloudecast.com/redemeio/index.m3u8","https://8hzcavccys.zoeweb.tv/redeminas/ngrp:redeminas_all/playlist.m3u8","https://cdn.live.br1.jmvstream.com/w/LVW-10801/LVW10801_Xvg4R0u57n/chunklist.m3u8","https://isaocorp.cloudecast.com/ngt/index.m3u8","https://parecisfmlive.brasilstream.com.br/hls/parecisfmlive/index.m3u8","https://tv01.zas.media:1936/redetvparana/redetvparana/playlist.m3u8","https://cdn.live.br1.jmvstream.com/webtv/AVJ-12952/playlist/playlist.m3u8","https://video10.logicahost.com.br/soutv/soutv/playlist.m3u8","https://cdn.live.br1.jmvstream.com/w/LVW-20715/LVW20715_50E3x2MCm2/playlist.m3u8","https://video01.logicahost.com.br/tvafolha/tvafolha/playlist.m3u8","https://stmv1.samcast.com.br/giovane7843/giovane7843/playlist.m3u8","https://stmv5.samcast.com.br/wagner7919/wagner7919/playlist.m3u8","https://live.tcm10.com.br/tcm10hd/stream.m3u8","https://5ad482a77183d.streamlock.net/operacaotbomt.com/operacaotbomt.com/playlist.m3u8","https://stmv1.srvif.com/tvcurucasp/tvcurucasp/playlist.m3u8","https://5ad482a77183d.streamlock.net/rodrigotvbrusque.com.br/5d880199c902eb4a1e8df00d/playlist.m3u8","https://stream3.camara.gov.br/tv1/manifest.m3u8","https://televisaocidadeverde.brasilstream.com.br/hls/televisaocidadeverde/index.m3u8","https://5c483b9d1019c.streamlock.net/8186/8186/playlist.m3u8","https://tvfronteira.brasilstream.com.br/hls/tvfronteira/index.m3u8","https://5b7f3c45ab7c2.streamlock.net/arapuan/ngrp:arapuan_all/playlist.m3u8","https://video02.logicahost.com.br/tvguara23/tvguara23/playlist.m3u8","https://streaming.cloudecast.com/hls/tvlifeamerica/index.m3u8","https://video.welltecnologia.com.br/tvguarapari/tvguarapari/playlist.m3u8","https://tv02.zas.media:1936/tvmarajoara/tvmarajoara/playlist.m3u8","https://video01.logicahost.com.br/tvpadrecicero/tvpadrecicero/playlist.m3u8","https://5b7f3c45ab7c2.streamlock.net/8008/smil:8008.smil/playlist.m3u8?DVR=","https://video09.logicahost.com.br/tvparaense/tvparaense/playlist.m3u","https://video02.logicahost.com.br/tvpetropolis/tvpetropolis/playlist.m3u8","https://cdn-fundacao-2110.ciclano.io:1443/fundacao-2110/fundacao-2110/playlist.m3u8","https://5a57bda70564a.streamlock.net/tvpasso/tvpasso.sdp/playlist.m3u8","https://live.cdn.upx.com/00046/myStream.sdp/playlist.m3u8","https://stmv5.samcast.com.br/tvmaispet6354/tvmaispet6354/playlist.m3u8","https://tvdsoultv.acessaradios.com.br/tvdsoultv/tvdsoultv.stream/playlist.m3u8","https://app.tvufop.com.br/hls/tvufop.m3u8","https://video05.logicahost.com.br/comunitariario/comunitariario/playlist.m3u8","https://644398c.ha.azioncdn.net/primary/tvuniversal_480p.sdp/playlist.m3u8","https://video01.logicahost.com.br/tvideonews/tvideonews/playlist.m3u8","https://sitetv.brasilstream.com.br/hls/sitetv/index.m3u8?token=","https://stream01.msolutionbrasil.com.br/hls/tvitape/live.m3u8","https://5a2b083e9f360.streamlock.net/tvpantanal/tvpantanal.sdp/playlist.m3u8","https://stmv1.voxtvhd.com.br/9030/9030/playlist.m3u8","https://streaming.procergs.com.br:8443/tve/stve/playlist.m3u8","https://5cf4a2c2512a2.streamlock.net/tvmaismarica/tvmaismarica/playlist.m3u8","https://5cf4a2c2512a2.streamlock.net/8104/8104/playlist.m3u8","https://umatv.nuvemplay.live/hls/stream.m3u8","https://w1.manasat.com/tvmana-brasil/smil:tvmana-brasil.smil/playlist.m3u8","https://streamer1.streamhost.org/salive/GMI3anjoh/playlist.m3u8"]);
+const BAD_CODECS = /hvc1|hev1|ac-3|ec-3|dvh1/i;
+
 const Live = {
   channels: null,
   status: store.get("liveStatus", {}),
+  checking: false,
   async load() {
     if (Live.channels) return Live.filtered();
     const res = await fetch(API.m3u);
@@ -217,7 +224,7 @@ const Live = {
           groups: (attr("group-title") || "Undefined").split(";").map((g) => g.trim()).filter(Boolean) };
       } else if (line && !line.startsWith("#") && cur) {
         cur.url = line;
-        const blocked = /xxx|adult/i.test(cur.name + " " + cur.groups.join(" "));
+        const blocked = /xxx|adult/i.test(cur.name + " " + cur.groups.join(" ")) || PAY_TV.test(cur.name);
         if (!blocked && line.startsWith("https://")) {          // http é bloqueado em sites https
           const key = cur.id.toLowerCase();
           if (byId.has(key)) byId.get(key).alts.push(cur.url);
@@ -236,14 +243,46 @@ const Live = {
   },
   clean: (n) => n.replace(/\s*\[(Not 24\/7|Geo-blocked)\]/gi, "").trim(),
   sources: (c) => [c.url, ...c.alts],
-  srcState(url) { const s = Live.status[url]; if (!s || Date.now() - s[1] > 864e5) return null; return s[0]; },
+  srcState(url) {
+    const s = Live.status[url];
+    if (s && Date.now() - s[1] < 3 * 864e5) return s[0];
+    return LIVE_SEED.has(url) ? true : null;
+  },
   chanState(c) { const s = Live.sources(c).map((u) => Live.srcState(u)); if (s.includes(true)) return true; if (s.length && s.every((x) => x === false)) return false; return null; },
-  async check(url, timeout = 7000) {
-    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeout);
-    try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) return false; const txt = (await r.text()).slice(0, 200); return txt.includes("#EXTM3U"); }
-    catch { return false; } finally { clearTimeout(t); }
+  /* Teste completo: lista do canal -> qualidade -> primeiro pedaço de vídeo.
+     Se tudo responder para o navegador, o canal toca no app. */
+  async check(url) {
+    const get = async (u, ms, range) => {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+      try { return await fetch(u, { signal: ctl.signal, headers: range ? { Range: "bytes=0-2047" } : {} }); } finally { clearTimeout(t); }
+    };
+    try {
+      let r = await get(url, 6000); if (!r.ok) return false;
+      let txt = await r.text(); let base = r.url;
+      if (!txt.includes("#EXTM3U")) return false;
+      if (txt.includes("#EXT-X-STREAM-INF")) {
+        const lines = txt.split(/\r?\n/); let variant = null, codecs = "";
+        for (let i = 0; i < lines.length; i++) {
+          if (!lines[i].startsWith("#EXT-X-STREAM-INF")) continue;
+          const m = lines[i].match(/CODECS="([^"]+)"/); let j = i + 1;
+          while (lines[j] && lines[j].startsWith("#")) j++;
+          if (lines[j] && (!variant || (m && !BAD_CODECS.test(m[1])))) { variant = new URL(lines[j].trim(), base).href; codecs = m ? m[1] : ""; }
+        }
+        if (!variant || (codecs && BAD_CODECS.test(codecs))) return false;
+        r = await get(variant, 6000); if (!r.ok) return false;
+        txt = await r.text(); base = r.url;
+      }
+      const seg = txt.split(/\r?\n/).find((l) => l && !l.startsWith("#"));
+      if (!seg) return false;
+      const su = new URL(seg.trim(), base).href;
+      if (su.startsWith("http:")) return false;
+      r = await get(su, 7000, true);
+      return r.ok || r.status === 206;
+    } catch { return false; }
   },
   async checkAll(onProgress) {
+    if (Live.checking) return null;
+    Live.checking = true;
     const urls = Live.filtered().flatMap(Live.sources);
     let done = 0, ok = 0, i = 0;
     const worker = async () => {
@@ -253,8 +292,9 @@ const Live = {
         onProgress && onProgress(done, urls.length);
       }
     };
-    await Promise.all(Array.from({ length: 16 }, worker));
-    store.set("liveStatus", Live.status);
+    try { await Promise.all(Array.from({ length: 20 }, worker)); }
+    finally { Live.checking = false; }
+    store.set("liveStatus", Live.status); store.set("liveChecked", Date.now());
     return { ok, total: urls.length };
   },
 };
@@ -652,7 +692,7 @@ function openTrailer(ytId, title) {
 }
 
 let hlsInstance = null;
-function openPlayer({ title, src, sources, isLive = false, onSourceOk }) {
+function openPlayer({ title, src, sources, isLive = false, onSourceOk, onSourceFail }) {
   const list = sources || [src];
   const el = document.createElement("div");
   el.className = "player";
@@ -666,12 +706,18 @@ function openPlayer({ title, src, sources, isLive = false, onSourceOk }) {
   $("[data-x]", el).onclick = () => closeTop();
   pushLayer(el, cleanup);
 
-  let idx = 0;
+  let idx = 0, attempt = 0;
   const tryNext = () => {
+    const my = ++attempt;
+    if (isLive && idx > 0 && onSourceFail) onSourceFail(list[idx - 1]);
     if (idx >= list.length) {
-      say(isLive ? "Este canal não abriu no navegador. Alguns canais só funcionam em players como o Kodi ou o VLC." : "Não deu para tocar este vídeo agora. Tente de novo em alguns minutos.");
+      say(isLive ? "Este canal não abriu aqui agora. Tente outro canal ou abra este no VLC ou no Kodi." : "Não deu para tocar este vídeo agora. Tente de novo em alguns minutos.");
       if (isLive) {
-        foot.innerHTML = `<button class="btn" data-copy>Copiar link do canal</button>`;
+        const u = list[0];
+        const android = /Android/i.test(navigator.userAgent);
+        const intent = (pkg) => `intent:${u}#Intent;package=${pkg};type=video/*;S.title=${encodeURIComponent(title)};end`;
+        foot.innerHTML = (android ? `<a class="btn hot" href="${esc(intent("org.videolan.vlc"))}">Abrir no VLC</a><a class="btn" href="${esc(intent("org.xbmc.kodi"))}">Abrir no Kodi</a>` : "")
+          + `<button class="btn" data-copy>Copiar link</button>`;
         $("[data-copy]", foot).onclick = async () => {
           try { await navigator.clipboard.writeText(list[0]); toast("Link copiado. Cole no Kodi ou no VLC."); }
           catch { foot.innerHTML = `<span style="user-select:all;word-break:break-all">${esc(list[0])}</span>`; }
@@ -685,20 +731,20 @@ function openPlayer({ title, src, sources, isLive = false, onSourceOk }) {
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
     const isHls = /\.m3u8(\?|$)/i.test(url) || isLive;
     let started = false;
-    const ok = () => { if (!started) { started = true; say(""); onSourceOk && onSourceOk(url); } };
+    const ok = () => { if (!started && my === attempt) { started = true; say(""); onSourceOk && onSourceOk(url); } };
     video.onplaying = ok;
-    video.onerror = () => { if (!started) tryNext(); };
+    video.onerror = () => { if (!started && my === attempt) tryNext(); };
     video.onwaiting = () => { if (started && !isLive) say(""); };
     if (isHls && window.Hls && Hls.isSupported()) {
       hlsInstance = new Hls({ enableWorker: true, lowLatencyMode: true });
-      hlsInstance.on(Hls.Events.ERROR, (_, d) => { if (d.fatal && !started) tryNext(); });
+      hlsInstance.on(Hls.Events.ERROR, (_, d) => { if (d.fatal && !started && my === attempt) tryNext(); });
       hlsInstance.loadSource(url); hlsInstance.attachMedia(video);
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => say("Toque no play para começar.")));
     } else {
       video.src = url;
       video.play().catch(() => {});
     }
-    setTimeout(() => { if (!started && isLive && el.isConnected) tryNext(); }, 15000);
+    setTimeout(() => { if (!started && isLive && el.isConnected && my === attempt) tryNext(); }, 15000);
   };
   tryNext();
 }
@@ -782,44 +828,53 @@ RENDER.aovivo = async (view) => {
   try { await Live.load(); drawLive(view); }
   catch { $("#liveBody", view).innerHTML = '<div class="empty"><strong>Lista de canais indisponível agora.</strong><button class="btn" id="liveRetry">Tentar de novo</button></div>'; $("#liveRetry", view).onclick = () => RENDER.aovivo(view); }
 };
-let liveGroup = "all", liveHideOff = store.get("liveHideOff", true);
+let liveGroup = "all", liveShowAll = store.get("liveShowAll", false);
 function drawLive(view) {
   const chans = Live.filtered();
+  const working = chans.filter((c) => Live.chanState(c) === true);
+  const pool = liveShowAll ? chans : working;
   const counts = {};
-  chans.forEach((c) => c.groups.forEach((g) => (counts[g] = (counts[g] || 0) + 1)));
+  pool.forEach((c) => c.groups.forEach((g) => (counts[g] = (counts[g] || 0) + 1)));
   const groups = Object.keys(counts).sort((a, b) => (LIVE_GROUPS[a] || a).localeCompare(LIVE_GROUPS[b] || b));
-  const checked = Object.keys(Live.status).length > 0;
+  if (liveGroup !== "all" && !counts[liveGroup]) liveGroup = "all";
   $("#liveBody", view).innerHTML = `
     <div class="pad"><div class="panel" style="margin-bottom:6px">
-      <h3>Canais no ar <button class="btn" id="checkBtn" style="min-height:38px;padding:0 14px;font-size:13.5px">${checked ? "Testar de novo" : "Testar agora"}</button></h3>
-      <p class="note">${checked ? "Bolinha verde: funcionando no último teste. Vermelha: fora do ar." : "Teste quais canais estão funcionando para esconder os fora do ar."}</p>
+      <h3><span><b style="color:var(--ok)">●</b> ${working.length} canais funcionando no app</span>
+        <button class="btn" id="checkBtn" style="min-height:38px;padding:0 14px;font-size:13.5px">Atualizar</button></h3>
+      <p class="note" id="liveNote">Mostramos só os canais que tocam aqui. A lista é conferida sozinha de tempos em tempos.</p>
       <div class="progress" hidden><i></i></div>
-      <label class="switch"><span>Esconder canais fora do ar</span><input type="checkbox" id="hideOff" ${liveHideOff ? "checked" : ""}></label>
+      <label class="switch"><span>Mostrar também os que não abrem no app</span><input type="checkbox" id="showAll" ${liveShowAll ? "checked" : ""}></label>
     </div></div>
-    <div class="chips" id="lgChips"><button class="chip${liveGroup === "all" ? " on" : ""}" data-g="all">Todos</button>${groups.map((g) => `<button class="chip${liveGroup === g ? " on" : ""}" data-g="${esc(g)}">${esc(LIVE_GROUPS[g] || g)} · ${counts[g]}</button>`).join("")}</div>
+    <div class="chips" id="lgChips"><button class="chip${liveGroup === "all" ? " on" : ""}" data-g="all">Todos · ${pool.length}</button>${groups.map((g) => `<button class="chip${liveGroup === g ? " on" : ""}" data-g="${esc(g)}">${esc(LIVE_GROUPS[g] || g)} · ${counts[g]}</button>`).join("")}</div>
     <div class="pad"><div class="grid chans" id="chanGrid"></div></div>`;
   const drawGrid = () => {
-    let list = chans.filter((c) => liveGroup === "all" || c.groups.includes(liveGroup));
-    if (liveHideOff) list = list.filter((c) => Live.chanState(c) !== false);
-    list.sort((a, b) => (Live.chanState(b) === true) - (Live.chanState(a) === true) || a.name.localeCompare(b.name));
-    $("#chanGrid", view).innerHTML = list.map(chanCardHTML).join("") || '<div class="empty" style="grid-column:1/-1">Nenhum canal nesta categoria agora.</div>';
+    const list = pool.filter((c) => liveGroup === "all" || c.groups.includes(liveGroup))
+      .sort((a, b) => (Live.chanState(b) === true) - (Live.chanState(a) === true) || a.name.localeCompare(b.name));
+    $("#chanGrid", view).innerHTML = list.map(chanCardHTML).join("")
+      || '<div class="empty" style="grid-column:1/-1">Nenhum canal funcionando nesta categoria agora. Toque em “Atualizar” para conferir de novo.</div>';
   };
   $$("#lgChips .chip", view).forEach((c) => (c.onclick = () => { liveGroup = c.dataset.g; $$("#lgChips .chip", view).forEach((x) => x.classList.toggle("on", x === c)); drawGrid(); }));
-  $("#hideOff", view).onchange = (e) => { liveHideOff = e.target.checked; store.set("liveHideOff", liveHideOff); drawGrid(); };
-  $("#checkBtn", view).onclick = async (e) => {
-    const b = e.currentTarget; b.disabled = true; b.textContent = "Testando...";
-    const bar = $(".progress", view); bar.hidden = false;
-    const { ok, total } = await Live.checkAll((d, t) => ($(".progress i", view).style.width = Math.round((d / t) * 100) + "%"));
-    toast(`${ok} de ${total} fontes no ar`);
-    drawLive(view);
+  $("#showAll", view).onchange = (e) => { liveShowAll = e.target.checked; store.set("liveShowAll", liveShowAll); drawLive(view); };
+  const runCheck = async (manual) => {
+    if (Live.checking) return;
+    const btn = $("#checkBtn", view), bar = $(".progress", view), note = $("#liveNote", view);
+    btn.disabled = true; btn.textContent = "Conferindo..."; bar.hidden = false;
+    note.textContent = "Conferindo quais canais estão no ar. Você pode assistir enquanto isso.";
+    const r = await Live.checkAll((d, t) => { const i = $(".progress i", view); if (i) i.style.width = Math.round((d / t) * 100) + "%"; });
+    if (r && manual) toast(`${r.ok} fontes funcionando`);
+    if (view.isConnected && !view.hidden) drawLive(view);
   };
+  $("#checkBtn", view).onclick = () => runCheck(true);
   drawGrid();
+  // Confere sozinho se a última checagem tem mais de 12 horas
+  if (Date.now() - store.get("liveChecked", 0) > 12 * 3600e3) setTimeout(() => runCheck(false), 600);
 }
 function playChannel(id) {
   const c = (Live.channels || []).find((x) => x.id === id); if (!c) return;
   const srcs = Live.sources(c).sort((a, b) => ({ true: 0, null: 1, false: 2 }[Live.srcState(a)] - { true: 0, null: 1, false: 2 }[Live.srcState(b)]));
   Lib.addWatched({ kind: "live", id: c.id, name: Live.clean(c.name), poster: c.logo });
-  openPlayer({ title: Live.clean(c.name), sources: srcs, isLive: true, onSourceOk: (u) => { Live.status[u] = [true, Date.now()]; store.set("liveStatus", Live.status); } });
+  openPlayer({ title: Live.clean(c.name), sources: srcs, isLive: true, onSourceOk: (u) => { Live.status[u] = [true, Date.now()]; store.set("liveStatus", Live.status); },
+    onSourceFail: (u) => { Live.status[u] = [false, Date.now()]; store.set("liveStatus", Live.status); } });
 }
 
 /* ------------------------------------------------------------------ MINHA LISTA */
