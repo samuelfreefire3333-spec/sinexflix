@@ -551,9 +551,10 @@ async function renderCineDetail(el, body, kind, id, base) {
 
 async function renderProviders(box, kind, id, name) {
   if (!TMDB.enabled()) {
-    box.innerHTML = `<h3>Onde assistir</h3><p class="note">Veja em quais serviços este título está no Brasil. Para ligar, configure a chave grátis do TMDB.</p>
-      <button class="btn" data-setup>Configurar agora</button>`;
-    $("[data-setup]", box).onclick = () => openSettings("tmdb"); return;
+    // Sem chave: só um link discreto, sem insistir.
+    box.outerHTML = `<p class="note" style="color:var(--muted);font-size:13px;margin:0">Quer saber em qual serviço assistir este título? <button class="link" data-setup style="font-size:13px">Ativar “Onde assistir”</button></p>`;
+    const b = document.querySelector("[data-setup]"); if (b) b.onclick = () => openSettings("tmdb");
+    return;
   }
   try {
     const r = await TMDB.providers(kind, id);
@@ -632,6 +633,8 @@ async function playTrailerFor(kind, id) {
   catch { toast("Não deu para abrir o trailer"); }
 }
 function openTrailer(ytId, title) {
+  // Aberto como arquivo do computador, o YouTube não deixa tocar dentro do app.
+  if (location.protocol === "file:") { window.open("https://www.youtube.com/watch?v=" + encodeURIComponent(ytId), "_blank"); return; }
   const el = document.createElement("div");
   el.className = "player";
   el.innerHTML = `<div class="player-bar"><button class="icon-btn" data-x aria-label="Fechar">${ICON.close}</button><div class="t">${esc(title || "Trailer")}</div></div>
