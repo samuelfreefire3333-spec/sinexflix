@@ -165,8 +165,11 @@ const IA = {
       name: f.title || f.name, url: `${API.ia}/download/${encodeURIComponent(id)}/${f.name.split("/").map(encodeURIComponent).join("/")}`,
       size: +f.size || 0,
     }));
+    // Versões alternativas (outras codificações do mesmo filme), usadas se a principal falhar
+    const alts = vids.filter((f) => /\.mp4$/i.test(f.name)).sort((a, b) => score(b) - score(a))
+      .map((f) => `${API.ia}/download/${encodeURIComponent(id)}/${f.name.split("/").map(encodeURIComponent).join("/")}`);
     const md = meta.metadata || {};
-    return { files, title: first(md.title) || id, plot: stripHtml(first(md.description)), year: String(first(md.year) || first(md.date) || "").slice(0, 4) };
+    return { files, alts, title: first(md.title) || id, plot: stripHtml(first(md.description)), year: String(first(md.year) || first(md.date) || "").slice(0, 4) };
   },
   async random(count = 18) {
     const coll = isKids() ? "animationandcartoons" : "feature_films";
@@ -621,7 +624,11 @@ async function renderIADetail(el, body, base) {
     ${info.files.length > 1 ? `<div class="panel"><h3>Partes</h3><div class="tags">${info.files.map((f, n) => `<button class="chip" data-part="${n}">${esc(f.name)}</button>`).join("")}</div></div>` : ""}
     ${it.plot ? `<p class="plot">${esc(it.plot.slice(0, 1200))}</p>` : ""}
     <p class="note" style="color:var(--muted);font-size:12.5px">Do acervo público do Internet Archive (archive.org).</p>`;
-  const play = (n) => { Lib.addWatched({ kind: "ia", id: it.id, name: it.name, year: it.year, poster: it.poster }); openPlayer({ title: it.name, src: info.files[n].url }); };
+  const play = (n) => {
+    Lib.addWatched({ kind: "ia", id: it.id, name: it.name, year: it.year, poster: it.poster });
+    const alts = info.alts.filter((u) => u !== info.files[n].url);
+    openPlayer({ title: it.name, sources: [info.files[n].url, ...alts] });
+  };
   const pb = $("[data-play]", body); if (pb) pb.onclick = () => play(0);
   $$("[data-part]", body).forEach((b) => (b.onclick = () => play(+b.dataset.part)));
   wireListBtn(body, it); wireShare(body, it.name);
@@ -661,16 +668,27 @@ function openPlayer({ title, src, sources, isLive = false, onSourceOk }) {
 
   let idx = 0;
   const tryNext = () => {
-    if (idx >= list.length) { say(isLive ? "Este canal está fora do ar agora. Tente outro." : "Não deu para tocar este vídeo agora."); return; }
+    if (idx >= list.length) {
+      say(isLive ? "Este canal não abriu no navegador. Alguns canais só funcionam em players como o Kodi ou o VLC." : "Não deu para tocar este vídeo agora. Tente de novo em alguns minutos.");
+      if (isLive) {
+        foot.innerHTML = `<button class="btn" data-copy>Copiar link do canal</button>`;
+        $("[data-copy]", foot).onclick = async () => {
+          try { await navigator.clipboard.writeText(list[0]); toast("Link copiado. Cole no Kodi ou no VLC."); }
+          catch { foot.innerHTML = `<span style="user-select:all;word-break:break-all">${esc(list[0])}</span>`; }
+        };
+      }
+      return;
+    }
     const url = list[idx++];
     foot.textContent = list.length > 1 ? `Fonte ${idx} de ${list.length}` : "";
-    say(isLive ? "Conectando..." : "");
+    say(isLive ? "Conectando ao canal..." : "Carregando o filme... Clássicos grandes podem levar até 1 minuto para começar.");
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
     const isHls = /\.m3u8(\?|$)/i.test(url) || isLive;
     let started = false;
     const ok = () => { if (!started) { started = true; say(""); onSourceOk && onSourceOk(url); } };
     video.onplaying = ok;
     video.onerror = () => { if (!started) tryNext(); };
+    video.onwaiting = () => { if (started && !isLive) say(""); };
     if (isHls && window.Hls && Hls.isSupported()) {
       hlsInstance = new Hls({ enableWorker: true, lowLatencyMode: true });
       hlsInstance.on(Hls.Events.ERROR, (_, d) => { if (d.fatal && !started) tryNext(); });
