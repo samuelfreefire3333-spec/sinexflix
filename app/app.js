@@ -10,6 +10,19 @@ const API = {
   m3u: "https://iptv-org.github.io/iptv/countries/br.m3u",
 };
 
+/* Servidores de trailer sem anúncio. Quando um cair, edite SÓ esta lista
+   (instâncias públicas: https://github.com/TeamPiped/documentation e https://docs.invidious.io/instances/). */
+const TRAILER_SERVERS = {
+  piped: ["https://api.piped.private.coffee"],
+  invidious: ["https://invidious.f5.si"],
+  embeds: [
+    { name: "Player Invidious", url: (id) => `https://invidious.f5.si/embed/${id}?autoplay=1&local=1` },
+    { name: "Player Piped", url: (id) => `https://piped.video/embed/${id}?autoplay=1` },
+    { name: "YouTube (com anúncio)", url: (id) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0` },
+  ],
+  timeoutMs: 2500,
+};
+
 const GENRES = [
   ["Action", "Ação"], ["Adventure", "Aventura"], ["Animation", "Animação"], ["Comedy", "Comédia"],
   ["Crime", "Crime"], ["Documentary", "Documentário"], ["Drama", "Drama"], ["Family", "Família"],
@@ -585,7 +598,8 @@ async function renderCineDetail(el, body, kind, id, base) {
     ${oldMovie ? `<section class="panel" id="freeCopy"><h3>Versão completa grátis</h3><div class="spinner" style="margin:6px auto"></div></section>` : ""}
     ${kind === "series" ? `<section class="panel" id="seasons"></section>` : ""}
   `;
-  const yt = $("[data-yt]", body); if (yt) yt.onclick = () => openTrailer(yt.dataset.yt, it.name);
+  const yt = $("[data-yt]", body); if (yt) yt.onclick = () => openTrailer(yt.dataset.yt, it.name, it.background || it.poster);
+  if (trailers.length) prewarmTrailer(trailers[0]);   // quem abriu a ficha provavelmente vai ver o trailer
   wireListBtn(body, it); wireShare(body, it.name);
   renderProviders($("#whereToWatch", body), kind, id, it.name);
   if (oldMovie) findFreeCopy($("#freeCopy", body), it);
@@ -676,100 +690,155 @@ async function renderIADetail(el, body, base) {
 
 /* ------------------------------------------------------------------ players */
 async function playTrailerFor(kind, id) {
-  try { const meta = await Cine.meta(kind, id); const t = Cine.trailers(meta); if (!t.length) return toast("Este título não tem trailer"); openTrailer(t[0], meta.name); }
+  try { const meta = await Cine.meta(kind, id); const t = Cine.trailers(meta); if (!t.length) return toast("Este título não tem trailer"); openTrailer(t[0], meta.name, meta.background || meta.poster); }
   catch { toast("Não deu para abrir o trailer"); }
 }
-/* ===== Trailers sem anúncio — Sinexflix =====
-   Tenta tocar o trailer direto (via Piped / Invidious); se não der,
-   tenta os players embutidos em ordem; por último, o link do YouTube. */
-const PROXY_API = [
-  { t: "piped", u: "https://api.piped.private.coffee" },
-  { t: "inv", u: "https://invidious.f5.si" },
-];
-const EMBED_FALLBACK = [
-  (id) => `https://invidious.f5.si/embed/${id}?autoplay=1&local=1`,
-  (id) => `https://piped.video/embed/${id}?autoplay=1`,
-  (id) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0`,
-];
-const streamCache = new Map(); // id -> {src,type} | null
+/* ===== Trailers sem anúncio =====
+   1) Pergunta a TODOS os servidores Piped/Invidious ao mesmo tempo (o primeiro que responder vence);
+   2) se nenhum responder em TRAILER_SERVERS.timeoutMs, cai para os players embutidos;
+   3) o usuário pode trocar de servidor no próprio player. */
+const TRAILER_TTL = 45 * 60e3;                // cache da resolução (sessionStorage)
+const trailerMem = new Map();                  // ytId -> Promise<stream|null> em andamento
 
+function trailerApis() {
+  return [
+    ...TRAILER_SERVERS.piped.map((u) => ({ t: "piped", u, name: "Piped" })),
+    ...TRAILER_SERVERS.invidious.map((u) => ({ t: "inv", u, name: "Invidious" })),
+  ];
+}
 function heightOf(s) {
   const q = `${s.qualityLabel || ""} ${s.resolution || ""} ${s.size || ""}`;
   const n = q.match(/\d{3,4}/g);
   return n ? Math.max(...n.map(Number)) : 0;
 }
-
-async function resolveStream(id) {
-  if (streamCache.has(id)) return streamCache.get(id);
-  for (const api of PROXY_API) {
-    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 8000);
-    try {
-      let out = null;
-      if (api.t === "piped") {
-        const r = await fetch(`${api.u}/streams/${id}`, { signal: ctl.signal });
-        if (!r.ok) continue;
-        const j = await r.json();
-        if (j.hls) out = { src: j.hls, type: "hls" };
-        else {
-          const v = (j.videoStreams || []).filter((s) => !s.videoOnly && /mp4/.test(s.mimeType || "")).sort((a, b) => heightOf(b) - heightOf(a))[0];
-          if (v) out = { src: v.url, type: "mp4" };
-        }
-      } else {
-        const r = await fetch(`${api.u}/api/v1/videos/${id}?local=true`, { signal: ctl.signal });
-        if (!r.ok) continue;
-        const j = await r.json();
-        const f = (j.formatStreams || []).sort((a, b) => heightOf(b) - heightOf(a))[0];
-        if (f) out = { src: f.url, type: "mp4" };
-      }
-      if (out) { streamCache.set(id, out); return out; }
-    } catch (_) { /* tenta o próximo servidor */ } finally { clearTimeout(timer); }
-  }
-  streamCache.set(id, null);
+function trailerCacheGet(id) {
+  try { const v = JSON.parse(sessionStorage.getItem("sx_tr_" + id)); if (v && Date.now() - v.t < TRAILER_TTL) return v.s; } catch { /* sem cache */ }
   return null;
 }
+function trailerCacheSet(id, s) { try { sessionStorage.setItem("sx_tr_" + id, JSON.stringify({ t: Date.now(), s })); } catch { /* sem cache */ } }
 
-function iframeFallback(holder, ytId) {
-  let i = 0;
-  const next = () => {
-    if (i >= EMBED_FALLBACK.length) { holder.innerHTML = `<div class="tp-load">Não carregou aqui. Use o link abaixo.</div>`; return; }
-    const src = EMBED_FALLBACK[i++](encodeURIComponent(ytId));
-    holder.innerHTML = `<iframe src="${src}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen title="Trailer"></iframe>`;
-  };
-  next();
+async function fetchTrailerFrom(api, id, signal) {
+  const host = new URL(api.u).host;
+  if (api.t === "piped") {
+    const r = await fetch(`${api.u}/streams/${id}`, { signal });
+    if (!r.ok) throw new Error("piped " + r.status);
+    const j = await r.json();
+    if (j.hls) return { src: j.hls, type: "hls", server: `${api.name} · ${host}`, poster: j.thumbnailUrl || "" };
+    const v = (j.videoStreams || []).filter((s) => !s.videoOnly && /mp4/.test(s.mimeType || "")).sort((a, b) => heightOf(b) - heightOf(a))[0];
+    if (v) return { src: v.url, type: "mp4", server: `${api.name} · ${host}`, poster: j.thumbnailUrl || "" };
+    throw new Error("piped sem vídeo");
+  }
+  const r = await fetch(`${api.u}/api/v1/videos/${id}?local=true`, { signal });
+  if (!r.ok) throw new Error("invidious " + r.status);
+  const j = await r.json();
+  const f = (j.formatStreams || []).sort((a, b) => heightOf(b) - heightOf(a))[0];
+  if (f) return { src: f.url, type: "mp4", server: `${api.name} · ${host}`, poster: "" };
+  throw new Error("invidious sem vídeo");
 }
+function withTimeout(run, ms) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+  return run(ctl.signal).finally(() => clearTimeout(t));
+}
+/* only = índice de um servidor específico (seletor do player); sem ele, corrida entre todos. */
+function resolveStream(id, only = null) {
+  if (only == null) {
+    const cached = trailerCacheGet(id); if (cached) return Promise.resolve(cached);
+    if (trailerMem.has(id)) return trailerMem.get(id);
+  }
+  const apis = only == null ? trailerApis() : [trailerApis()[only]].filter(Boolean);
+  const p = Promise.any(apis.map((api) => withTimeout((sig) => fetchTrailerFrom(api, id, sig), TRAILER_SERVERS.timeoutMs)))
+    .then((s) => { trailerCacheSet(id, s); return s; })
+    .catch(() => null);
+  if (only == null) { trailerMem.set(id, p); p.then((s) => { if (!s) trailerMem.delete(id); }); }
+  return p;
+}
+/* Pré-aquecimento: começa a resolver antes do clique terminar. */
+function prewarmTrailer(ytId) { if (ytId && location.protocol !== "file:") resolveStream(ytId); }
+async function prewarmTrailerFor(kind, imdb) {
+  try { const meta = await Cine.meta(kind, imdb); prewarmTrailer(Cine.trailers(meta)[0]); } catch { /* sem pré-aquecimento */ }
+}
+const debug = (...a) => { if (store.get("debug", false)) console.log("[Sinexflix]", ...a); };
 
-async function openTrailer(ytId, title) {
+function openTrailer(ytId, title, poster = "") {
   if (location.protocol === "file:") { window.open("https://www.youtube.com/watch?v=" + encodeURIComponent(ytId), "_blank"); return; }
+  performance.mark("sx-trailer-open");
   const el = document.createElement("div");
   el.className = "player";
   el.innerHTML = `<div class="player-bar"><button class="icon-btn" data-x aria-label="Fechar">${ICON.close}</button><div class="t">${esc(title || "Trailer")}</div></div>
-    <div class="tp-holder"><div class="tp-load">Carregando trailer...</div></div>
-    <div class="player-foot"><a class="link" href="https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}" target="_blank" rel="noopener">Abrir no YouTube ↗</a></div>`;
+    <div class="tp-holder">${poster ? `<img class="tp-poster" src="${esc(poster)}" alt="">` : ""}<div class="tp-load"><div class="spinner"></div><span>Carregando trailer sem anúncio...</span></div></div>
+    <div class="player-foot tp-foot"><div class="tp-servers" role="group" aria-label="Servidor"></div>
+      <a class="link" href="https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}" target="_blank" rel="noopener">Abrir no YouTube ↗</a></div>`;
   $("[data-x]", el).onclick = () => closeTop();
-  const cleanup = () => {
-    if (el._hls) { el._hls.destroy(); el._hls = null; }
-    const v = $("video", el); if (v) { v.removeAttribute("src"); v.load(); }
+  const holder = $(".tp-holder", el), serversBox = $(".tp-servers", el);
+  let current = "auto", hls = null, token = 0;
+  const stopVideo = () => {
+    if (hls) { hls.destroy(); hls = null; }
+    const v = $("video", holder); if (v) { v.removeAttribute("src"); v.load(); }
   };
-  pushLayer(el, cleanup);
+  pushLayer(el, stopVideo);
 
-  const holder = $(".tp-holder", el);
-  const stream = await resolveStream(ytId);
-  if (!holder.isConnected) return; // fechou antes de carregar
-  if (!stream) { iframeFallback(holder, ytId); return; }
-
-  holder.innerHTML = `<video controls autoplay playsinline preload="auto"></video>`;
-  const v = $("video", holder);
-  if (stream.type === "hls" && window.Hls && Hls.isSupported()) {
-    const hls = new Hls({ maxBufferLength: 20 });
-    hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) { hls.destroy(); el._hls = null; iframeFallback(holder, ytId); } });
-    hls.loadSource(stream.src); hls.attachMedia(v);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
-    el._hls = hls;
-  } else {
-    v.src = stream.src;
-    v.play().catch(() => {});
+  const options = [["auto", "Automático"],
+    ...trailerApis().map((a, i) => ["api:" + i, `${a.name} (${new URL(a.u).host.split(".")[0]})`]),
+    ...TRAILER_SERVERS.embeds.map((e, i) => ["emb:" + i, e.name])];
+  const drawServers = () => {
+    serversBox.innerHTML = options.map(([k, label]) => `<button class="chip${k === current ? " on" : ""}" data-srv="${k}">${esc(label)}</button>`).join("");
+    $$("[data-srv]", serversBox).forEach((b) => (b.onclick = () => choose(b.dataset.srv)));
+  };
+  const showLoading = (text) => {
+    stopVideo();
+    holder.innerHTML = `${poster ? `<img class="tp-poster" src="${esc(poster)}" alt="">` : ""}<div class="tp-load"><div class="spinner"></div><span>${esc(text)}</span></div>`;
+  };
+  const showError = (text) => {
+    stopVideo();
+    holder.innerHTML = `<div class="tp-load"><strong>${esc(text)}</strong><span>Escolha outro servidor embaixo ou abra no YouTube.</span></div>`;
+  };
+  const playEmbed = (i) => {
+    stopVideo();
+    current = "emb:" + i; drawServers();
+    const e = TRAILER_SERVERS.embeds[i];
+    holder.innerHTML = `<iframe src="${esc(e.url(encodeURIComponent(ytId)))}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen title="Trailer"></iframe>`;
+    debug("trailer via player embutido", e.name);
+  };
+  const playStream = (s, my) => {
+    stopVideo();
+    holder.innerHTML = `<video controls playsinline preload="auto"${s.poster || poster ? ` poster="${esc(s.poster || poster)}"` : ""}></video>
+      <button class="btn tp-unmute" hidden>🔊 Ativar som</button>`;
+    const v = $("video", holder), unmute = $(".tp-unmute", holder);
+    const start = () => v.play().catch((err) => {
+      if (err && err.name === "NotAllowedError") {          // navegador bloqueou som automático
+        v.muted = true; v.play().catch(() => {}); unmute.hidden = false;
+      }
+    });
+    unmute.onclick = () => { v.muted = false; unmute.hidden = true; v.play().catch(() => {}); };
+    v.addEventListener("playing", () => {
+      performance.mark("sx-trailer-frame");
+      try { performance.measure("sx-trailer", "sx-trailer-open", "sx-trailer-frame"); debug("trailer: primeiro quadro em", Math.round(performance.getEntriesByName("sx-trailer").pop().duration), "ms via", s.server); } catch { /* sem medição */ }
+    }, { once: true });
+    const fail = () => { if (my !== token || !holder.isConnected) return; debug("stream falhou", s.server); if (current === "auto") playEmbed(0); else showError("Este servidor não tocou o trailer."); };
+    if (s.type === "hls" && window.Hls && Hls.isSupported()) {
+      hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60, capLevelToPlayerSize: true, startLevel: -1 });
+      hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fail(); });
+      hls.loadSource(s.src); hls.attachMedia(v);
+      hls.on(Hls.Events.MANIFEST_PARSED, start);
+    } else {
+      v.src = s.src; start();
+    }
+    v.addEventListener("error", fail, { once: true });
+  };
+  async function choose(key) {
+    const my = ++token;
+    current = key; drawServers();
+    if (key.startsWith("emb:")) { playEmbed(+key.slice(4)); return; }
+    const only = key === "auto" ? null : +key.slice(4);
+    if (key !== "auto") showLoading("Conectando ao servidor...");
+    const s = await resolveStream(ytId, only);
+    if (my !== token || !holder.isConnected) return;     // trocou de servidor ou fechou
+    if (s) playStream(s, my);
+    else if (key === "auto") playEmbed(0);
+    else showError("Este servidor não respondeu agora.");
   }
-  v.addEventListener("error", () => iframeFallback(holder, ytId), { once: true });
+  drawServers();
+  choose("auto");
 }
 
 let hlsInstance = null;
@@ -1102,6 +1171,15 @@ function boot() {
   $$(".tabbar button").forEach((b) => (b.onclick = async () => { await closeAll(); showTab(b.dataset.tab); }));
   $("#brandBtn").onclick = () => showTab("inicio");
   $("#settingsBtn").onclick = () => openSettings();
+  // Pré-aquece o trailer no toque/passar o mouse, antes do clique terminar
+  const warm = (e) => {
+    const t = e.target.closest && e.target.closest("[data-trailer],[data-yt]");
+    if (!t || t.dataset.warmed) return;
+    t.dataset.warmed = "1";
+    if (t.dataset.yt) prewarmTrailer(t.dataset.yt); else prewarmTrailerFor("movie", t.dataset.trailer);
+  };
+  document.addEventListener("pointerdown", warm, { passive: true, capture: true });
+  document.addEventListener("mouseover", warm, { passive: true });
   applyKids();
   showTab(location.hash.slice(1) || "inicio");
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
