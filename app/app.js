@@ -689,9 +689,11 @@ async function renderIADetail(el, body, base) {
 }
 
 /* ------------------------------------------------------------------ players */
-async function playTrailerFor(kind, id) {
-  try { const meta = await Cine.meta(kind, id); const t = Cine.trailers(meta); if (!t.length) return toast("Este título não tem trailer"); openTrailer(t[0], meta.name, meta.background || meta.poster); }
-  catch { toast("Não deu para abrir o trailer"); }
+function playTrailerFor(kind, id) {
+  // Abre o player na hora com o que já está na tela; o código do trailer chega depois.
+  const base = seen.get(kind + ":" + id) || {};
+  const ytId = Cine.meta(kind, id).then((meta) => Cine.trailers(meta)[0] || null).catch(() => null);
+  openTrailer(ytId, base.name || "Trailer", base.background || base.poster || "");
 }
 /* ===== Trailers sem anúncio =====
    1) Pergunta a TODOS os servidores Piped/Invidious ao mesmo tempo (o primeiro que responder vence);
@@ -759,15 +761,18 @@ async function prewarmTrailerFor(kind, imdb) {
 }
 const debug = (...a) => { if (store.get("debug", false)) console.log("[Sinexflix]", ...a); };
 
-function openTrailer(ytId, title, poster = "") {
-  if (location.protocol === "file:") { window.open("https://www.youtube.com/watch?v=" + encodeURIComponent(ytId), "_blank"); return; }
+/* ytIdIn pode ser o código do vídeo ou uma promessa dele (o player abre antes de saber). */
+function openTrailer(ytIdIn, title, poster = "") {
+  const idPromise = Promise.resolve(ytIdIn);
+  if (location.protocol === "file:") { idPromise.then((id) => id && window.open("https://www.youtube.com/watch?v=" + encodeURIComponent(id), "_blank")); return; }
+  let ytId = typeof ytIdIn === "string" ? ytIdIn : "";
   performance.mark("sx-trailer-open");
   const el = document.createElement("div");
   el.className = "player";
   el.innerHTML = `<div class="player-bar"><button class="icon-btn" data-x aria-label="Fechar">${ICON.close}</button><div class="t">${esc(title || "Trailer")}</div></div>
     <div class="tp-holder">${poster ? `<img class="tp-poster" src="${esc(poster)}" alt="">` : ""}<div class="tp-load"><div class="spinner"></div><span>Carregando trailer sem anúncio...</span></div></div>
     <div class="player-foot tp-foot"><div class="tp-servers" role="group" aria-label="Servidor"></div>
-      <a class="link" href="https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}" target="_blank" rel="noopener">Abrir no YouTube ↗</a></div>`;
+      <a class="link" data-yt-link href="https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}" target="_blank" rel="noopener">Abrir no YouTube ↗</a></div>`;
   $("[data-x]", el).onclick = () => closeTop();
   const holder = $(".tp-holder", el), serversBox = $(".tp-servers", el);
   let current = "auto", hls = null, token = 0;
@@ -828,6 +833,12 @@ function openTrailer(ytId, title, poster = "") {
   async function choose(key) {
     const my = ++token;
     current = key; drawServers();
+    if (!ytId) {
+      ytId = await idPromise;
+      if (my !== token || !holder.isConnected) return;
+      if (!ytId) { showError("Este título não tem trailer."); return; }
+      $("[data-yt-link]", el).href = "https://www.youtube.com/watch?v=" + encodeURIComponent(ytId);
+    }
     if (key.startsWith("emb:")) { playEmbed(+key.slice(4)); return; }
     const only = key === "auto" ? null : +key.slice(4);
     if (key !== "auto") showLoading("Conectando ao servidor...");
