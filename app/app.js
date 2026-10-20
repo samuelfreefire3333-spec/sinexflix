@@ -161,28 +161,29 @@ const IA = {
   },
   async files(id) {
     const meta = await getJSON(`${API.ia}/metadata/${encodeURIComponent(id)}`, { ttl: 240 });
-    const ext = /\.(mp4|m4v|webm|mov)$/i;              // Ogg (Theora/Vorbis) fica de fora: qualidade e áudio piores
-    const all = (meta.files || []).filter((f) => ext.test(f.name || "") && !/sample|trailer/i.test(f.name));
-    // Derivados "512kb" são de baixa qualidade: só entram se não houver outro arquivo
-    const good = all.filter((f) => !/512kb/i.test(f.name));
-    const vids = good.length ? good : all;
+    // Ogg (Theora) só entra se o navegador tocar (o Chrome atual não toca mais)
+    const ogg = !!document.createElement("video").canPlayType('video/ogg; codecs="theora"');
+    const ext = ogg ? /\.(mp4|m4v|webm|mov|ogv)$/i : /\.(mp4|m4v|webm|mov)$/i;
+    const vids = (meta.files || []).filter((f) => ext.test(f.name || "") && !/sample|trailer/i.test(f.name));
     const base = (n) => n.replace(/(\.ia)?(_512kb)?\.\w+$/i, "").toLowerCase();
-    const score = (f) => {
-      let s = 0; const n = f.name.toLowerCase(); const fmt = (f.format || "").toLowerCase();
-      if (n.endsWith(".mp4")) s += 100;
-      if (/h\.264|mpeg4/.test(fmt)) s += 20;
-      s += Math.min((+f.size || 0) / 1e8, 50);         // maior arquivo = maior bitrate
-      return s;
+    const url = (f) => `${API.ia}/download/${encodeURIComponent(id)}/${f.name.split("/").map(encodeURIComponent).join("/")}`;
+    // Ordem de preferência: h.264 > outros mp4/webm > "512kb" (baixa qualidade) > Ogg; dentro de cada grupo, maior arquivo
+    const tier = (f) => {
+      const n = f.name.toLowerCase(), fmt = (f.format || "").toLowerCase();
+      if (n.endsWith(".ogv")) return 0;
+      if (/512kb/.test(n)) return 1;
+      if (/h\.264/.test(fmt)) return 3;
+      return 2;                                          // "MPEG4" original: pode ser codec antigo
     };
+    const better = (a, b) => (tier(b) - tier(a)) || ((+b.size || 0) - (+a.size || 0));
     const best = new Map();
-    vids.forEach((f) => { const b = base(f.name); if (!best.has(b) || score(f) > score(best.get(b))) best.set(b, f); });
+    vids.forEach((f) => { const b = base(f.name); if (!best.has(b) || better(f, best.get(b)) < 0) best.set(b, f); });
     const files = [...best.values()].sort((a, b) => a.name.localeCompare(b.name)).map((f) => ({
-      name: f.title || f.name, url: `${API.ia}/download/${encodeURIComponent(id)}/${f.name.split("/").map(encodeURIComponent).join("/")}`,
-      size: +f.size || 0,
+      name: f.title || f.name, url: url(f), size: +f.size || 0,
+      alts: vids.filter((g) => g !== f && base(g.name) === base(f.name)).sort(better).map(url),   // mesma parte, outra codificação
     }));
-    // Versões alternativas (outras codificações do mesmo filme), usadas se a principal falhar
-    const alts = vids.filter((f) => /\.mp4$/i.test(f.name)).sort((a, b) => (+b.size || 0) - (+a.size || 0))
-      .map((f) => `${API.ia}/download/${encodeURIComponent(id)}/${f.name.split("/").map(encodeURIComponent).join("/")}`);
+    // Todas as outras codificações, na mesma ordem: usadas se a principal falhar
+    const alts = [...vids].sort(better).map(url);
     // Legendas: português primeiro; as automáticas (.asr) por último
     const subs = (meta.files || []).filter((f) => /\.(srt|vtt)$/i.test(f.name || ""))
       .sort((a, b) => (/por|pt|bra/i.test(b.name) - /por|pt|bra/i.test(a.name)) || (/\.asr\./i.test(a.name) - /\.asr\./i.test(b.name)))
@@ -687,7 +688,7 @@ async function renderIADetail(el, body, base) {
     <p class="note" style="color:var(--muted);font-size:12.5px">Do acervo público do Internet Archive (archive.org).</p>`;
   const play = (n) => {
     Lib.addWatched({ kind: "ia", id: it.id, name: it.name, year: it.year, poster: it.poster });
-    const alts = info.alts.filter((u) => u !== info.files[n].url);
+    const alts = info.files[n].alts || info.alts.filter((u) => u !== info.files[n].url);
     openPlayer({ title: it.name, sources: [info.files[n].url, ...alts], resumeKey: `ia:${it.id}:${n}`, tracks: info.subs });
   };
   const pb = $("[data-play]", body); if (pb) pb.onclick = () => play(0);
