@@ -288,6 +288,17 @@ main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) +
 .player-msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; pointer-events: none; }
 .player-msg div { background: rgba(14,10,20,.85); padding: 16px 18px; border-radius: 14px; max-width: 340px; }
 
+/* ---------- controles extras do player (Fase 2) ---------- */
+.pc-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; }
+.pc-btn { min-height: 38px; min-width: 44px; padding: 0 12px; border-radius: 10px; background: var(--surface-2); color: var(--text); font: 700 13px/1 var(--font-body); }
+.pc-btn.on { background: var(--text); color: #120c18; }
+.pc-sel select { min-height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); padding: 0 10px; font: 600 13px/1 var(--font-body); }
+.pc-resume { position: absolute; z-index: 4; left: 50%; bottom: 180px; transform: translateX(-50%); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100% - 32px); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.player { position: fixed; }
+.player > video { aspect-ratio: 16 / 9; }
+.player:fullscreen { background: #000; }
+
 /* ---------- ajustes ---------- */
 .form { display: grid; gap: 14px; }
 .field { display: grid; gap: 6px; }
