@@ -679,16 +679,97 @@ async function playTrailerFor(kind, id) {
   try { const meta = await Cine.meta(kind, id); const t = Cine.trailers(meta); if (!t.length) return toast("Este título não tem trailer"); openTrailer(t[0], meta.name); }
   catch { toast("Não deu para abrir o trailer"); }
 }
-function openTrailer(ytId, title) {
-  // Aberto como arquivo do computador, o YouTube não deixa tocar dentro do app.
+/* ===== Trailers sem anúncio — Sinexflix =====
+   Tenta tocar o trailer direto (via Piped / Invidious); se não der,
+   tenta os players embutidos em ordem; por último, o link do YouTube. */
+const PROXY_API = [
+  { t: "piped", u: "https://api.piped.private.coffee" },
+  { t: "inv", u: "https://invidious.f5.si" },
+];
+const EMBED_FALLBACK = [
+  (id) => `https://invidious.f5.si/embed/${id}?autoplay=1&local=1`,
+  (id) => `https://piped.video/embed/${id}?autoplay=1`,
+  (id) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0`,
+];
+const streamCache = new Map(); // id -> {src,type} | null
+
+function heightOf(s) {
+  const q = `${s.qualityLabel || ""} ${s.resolution || ""} ${s.size || ""}`;
+  const n = q.match(/\d{3,4}/g);
+  return n ? Math.max(...n.map(Number)) : 0;
+}
+
+async function resolveStream(id) {
+  if (streamCache.has(id)) return streamCache.get(id);
+  for (const api of PROXY_API) {
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 8000);
+    try {
+      let out = null;
+      if (api.t === "piped") {
+        const r = await fetch(`${api.u}/streams/${id}`, { signal: ctl.signal });
+        if (!r.ok) continue;
+        const j = await r.json();
+        if (j.hls) out = { src: j.hls, type: "hls" };
+        else {
+          const v = (j.videoStreams || []).filter((s) => !s.videoOnly && /mp4/.test(s.mimeType || "")).sort((a, b) => heightOf(b) - heightOf(a))[0];
+          if (v) out = { src: v.url, type: "mp4" };
+        }
+      } else {
+        const r = await fetch(`${api.u}/api/v1/videos/${id}?local=true`, { signal: ctl.signal });
+        if (!r.ok) continue;
+        const j = await r.json();
+        const f = (j.formatStreams || []).sort((a, b) => heightOf(b) - heightOf(a))[0];
+        if (f) out = { src: f.url, type: "mp4" };
+      }
+      if (out) { streamCache.set(id, out); return out; }
+    } catch (_) { /* tenta o próximo servidor */ } finally { clearTimeout(timer); }
+  }
+  streamCache.set(id, null);
+  return null;
+}
+
+function iframeFallback(holder, ytId) {
+  let i = 0;
+  const next = () => {
+    if (i >= EMBED_FALLBACK.length) { holder.innerHTML = `<div class="tp-load">Não carregou aqui. Use o link abaixo.</div>`; return; }
+    const src = EMBED_FALLBACK[i++](encodeURIComponent(ytId));
+    holder.innerHTML = `<iframe src="${src}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen title="Trailer"></iframe>`;
+  };
+  next();
+}
+
+async function openTrailer(ytId, title) {
   if (location.protocol === "file:") { window.open("https://www.youtube.com/watch?v=" + encodeURIComponent(ytId), "_blank"); return; }
   const el = document.createElement("div");
   el.className = "player";
   el.innerHTML = `<div class="player-bar"><button class="icon-btn" data-x aria-label="Fechar">${ICON.close}</button><div class="t">${esc(title || "Trailer")}</div></div>
-    <iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(ytId)}?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="Trailer"></iframe>
+    <div class="tp-holder"><div class="tp-load">Carregando trailer...</div></div>
     <div class="player-foot"><a class="link" href="https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}" target="_blank" rel="noopener">Abrir no YouTube ↗</a></div>`;
   $("[data-x]", el).onclick = () => closeTop();
-  pushLayer(el);
+  const cleanup = () => {
+    if (el._hls) { el._hls.destroy(); el._hls = null; }
+    const v = $("video", el); if (v) { v.removeAttribute("src"); v.load(); }
+  };
+  pushLayer(el, cleanup);
+
+  const holder = $(".tp-holder", el);
+  const stream = await resolveStream(ytId);
+  if (!holder.isConnected) return; // fechou antes de carregar
+  if (!stream) { iframeFallback(holder, ytId); return; }
+
+  holder.innerHTML = `<video controls autoplay playsinline preload="auto"></video>`;
+  const v = $("video", holder);
+  if (stream.type === "hls" && window.Hls && Hls.isSupported()) {
+    const hls = new Hls({ maxBufferLength: 20 });
+    hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) { hls.destroy(); el._hls = null; iframeFallback(holder, ytId); } });
+    hls.loadSource(stream.src); hls.attachMedia(v);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
+    el._hls = hls;
+  } else {
+    v.src = stream.src;
+    v.play().catch(() => {});
+  }
+  v.addEventListener("error", () => iframeFallback(holder, ytId), { once: true });
 }
 
 let hlsInstance = null;
