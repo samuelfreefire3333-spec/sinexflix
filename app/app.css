@@ -272,9 +272,17 @@ main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) +
 .player { position: fixed; inset: 0; z-index: 70; background: #000; display: grid; grid-template-rows: auto 1fr auto; }
 .player-bar { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top, 0px) + 8px) var(--gutter-r) 8px var(--gutter-l); }
 .player-bar .t { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tp-holder { position: relative; display: grid; place-items: center; min-height: 0; }
-.tp-holder video, .tp-holder iframe { position: absolute; inset: 0; }
-.tp-load { color: var(--muted); font-weight: 600; text-align: center; padding: 20px; }
+.tp-holder { position: relative; display: grid; place-items: center; min-height: 0; overflow: hidden; }
+.tp-holder video, .tp-holder iframe { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tp-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .45; }
+.tp-load { position: relative; z-index: 1; color: var(--text); font-weight: 600; text-align: center; padding: 20px; display: grid; gap: 10px; justify-items: center; max-width: 320px; }
+.tp-load .spinner { margin: 0; }
+.tp-load span { color: #e5dcef; font-size: 14px; }
+.tp-unmute { position: absolute; z-index: 2; top: 12px; right: 12px; background: rgba(14,10,20,.8); }
+.tp-foot { flex-direction: column; align-items: stretch; gap: 10px; }
+.tp-servers { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.tp-servers::-webkit-scrollbar { display: none; }
+.tp-servers .chip { min-height: 34px; font-size: 13px; padding: 0 12px; }
 .player video, .player iframe { width: 100%; height: 100%; background: #000; border: 0; align-self: center; max-height: 100%; }
 .player-foot { padding: 8px var(--gutter-r) calc(env(safe-area-inset-bottom, 0px) + 12px) var(--gutter-l); color: var(--muted); font-size: 13px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .player-msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; pointer-events: none; }
