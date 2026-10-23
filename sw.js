@@ -1,5 +1,5 @@
 /* Sinexflix: guarda a "casca" do app para abrir rápido e funcionar sem internet. */
-const VERSION = "sinexflix-v4";
+const VERSION = "sinexflix-v5";
 const SHELL = ["./", "index.html", "app.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {

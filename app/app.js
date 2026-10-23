@@ -14,21 +14,21 @@ const API = {
    (instâncias públicas: https://github.com/TeamPiped/documentation e https://docs.invidious.io/instances/). */
 const TRAILER_SERVERS = {
   piped: [
-    "https://api.piped.private.coffee",
     "https://pipedapi.kavin.rocks",
+    "https://api.piped.private.coffee",
     "https://pipedapi.leptons.xyz",
   ],
   invidious: [
-    "https://invidious.f5.si",
-    "https://inv.tux.pizza",
+    "https://inv.nadeko.net",
     "https://invidious.nerdvpn.de",
+    "https://inv.tux.pizza",
   ],
   embeds: [
-    { name: "Player Invidious", url: (id) => `https://invidious.f5.si/embed/${id}?autoplay=1&local=1` },
-    { name: "Player Piped", url: (id) => `https://piped.video/embed/${id}?autoplay=1` },
-    { name: "YouTube (sem cookies)", url: (id) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0` },
+    { name: "YouTube Oficial (sem cookies)", url: (id) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0` },
+    { name: "YouTube Padrão", url: (id) => `https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1&rel=0` },
+    { name: "Player Invidious (Nadeko)", url: (id) => `https://inv.nadeko.net/embed/${id}?autoplay=1&local=1` },
   ],
-  timeoutMs: 2800,
+  timeoutMs: 2500,
 };
 
 /* Saúde das instâncias Piped/Invidious: prioriza servidores rápidos e coloca em pausa os que falharem. */
@@ -1143,7 +1143,7 @@ function openTrailer(ytIdIn, title, poster = "") {
     stopVideo();
     current = "emb:" + i; drawServers();
     const e = TRAILER_SERVERS.embeds[i];
-    holder.innerHTML = `<iframe src="${esc(e.url(encodeURIComponent(ytId)))}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen title="Trailer"></iframe>`;
+    holder.innerHTML = `<iframe src="${esc(e.url(encodeURIComponent(ytId)))}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin" title="Trailer"></iframe>`;
     debug("trailer via player embutido", e.name);
   };
   const playStream = (s, my) => {
@@ -1349,10 +1349,20 @@ function openWatch(cfg) {
     v.addEventListener("error", fail);
     load(s.srcs[k++]);
   };
-  const embed = (c, my) => {
+  const embed = (c, my, embIdx = 0) => {
     if (my !== token) return;
     stop();
-    holder.innerHTML = `<iframe src="${esc(TRAILER_SERVERS.embeds[0].url(encodeURIComponent(c.id)))}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen title="${esc(cur.title)}"></iframe>`;
+    const emb = TRAILER_SERVERS.embeds[embIdx] || TRAILER_SERVERS.embeds[0];
+    holder.innerHTML = `<iframe src="${esc(emb.url(encodeURIComponent(c.id)))}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin" title="${esc(cur.title)}"></iframe>`;
+    let ytFoot = $("[data-watch-yt]", el);
+    if (!ytFoot) {
+      ytFoot = document.createElement("div");
+      ytFoot.dataset.watchYt = "1";
+      ytFoot.style.cssText = "display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;width:100%";
+      $(".player-foot", el).appendChild(ytFoot);
+    }
+    ytFoot.innerHTML = `<span style="font-size:12.5px;color:var(--muted)">Reproduzindo via ${esc(emb.name)}</span>
+      <a class="link" href="https://www.youtube.com/watch?v=${encodeURIComponent(c.id)}" target="_blank" rel="noopener">Abrir no YouTube ↗</a>`;
     if (!c.trailer) { Lib.addWatched(cur.item); cur.onStart && cur.onStart(); }
   };
 
@@ -1941,7 +1951,7 @@ async function openSettings(focus) {
     <section class="panel"><h3>Servidores de vídeo (Piped / Invidious)</h3>
       <p class="note">O Sinexflix alterna automaticamente entre servidores públicos saudáveis. Se quiser, informe sua própria instância.</p>
       <div class="field"><label for="customPiped">Servidor Piped personalizado (opcional)</label><input id="customPiped" type="text" placeholder="https://api.piped.private.coffee" value="${esc(state.customPiped)}"></div>
-      <div class="field"><label for="customInvidious">Servidor Invidious personalizado (opcional)</label><input id="customInvidious" type="text" placeholder="https://invidious.f5.si" value="${esc(state.customInvidious)}"></div>
+      <div class="field"><label for="customInvidious">Servidor Invidious personalizado (opcional)</label><input id="customInvidious" type="text" placeholder="https://inv.nadeko.net" value="${esc(state.customInvidious)}"></div>
       <button class="btn" id="saveServers">Salvar servidores</button>
     </section>
     <section class="panel"><h3>Dados e Backup deste aparelho</h3>

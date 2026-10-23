@@ -20,7 +20,7 @@
 | **TV Aberta ao Vivo** (Canais públicos do Brasil via *iptv-org*, busca instantânea, favoritos `★` e verificação automática de sinal) | ✅ | ✅ |
 | **Minha Lista & Calendário de Episódios** (Barra de progresso nos cartões, próximos episódios e sincronização `.strm`/`.nfo` com a biblioteca do Kodi) | ✅ | ✅ |
 | **Modo Infantil com Senha** (Filtro seguro para animação, família e desenhos clássicos protegido por PIN `SHA-256`) | ✅ | ✅ |
-| **Backup Portátil (`.json`) & Funcionamento Offline** (Service Worker `sinexflix-v4` + catálogo de reserva local) | ✅ | ✅ |
+| **Backup Portátil (`.json`) & Funcionamento Offline** (Service Worker `sinexflix-v5` + catálogo de reserva local) | ✅ | ✅ |
 
 ---
 
