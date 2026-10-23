@@ -266,6 +266,12 @@ main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) +
 .ep p { margin: 0; font-size: 12.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .ep .when { font-size: 12px; color: var(--muted); font-weight: 600; }
 .ep .soon { color: var(--warm); }
+.ep-go { text-align: left; color: inherit; width: 100%; border-radius: 10px; }
+.ep-go:active { background: var(--surface-2); }
+.ep .thumb { position: relative; }
+.ep-play { position: absolute; inset: 0; margin: auto; width: 36px; height: 36px; border-radius: 50%; background: rgba(14,10,20,.72); display: grid; place-items: center; }
+.ep-play svg { width: 18px; height: 18px; fill: #fff; }
+.ep-prog { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--warm); }
 .eps { display: grid; gap: 10px; }
 
 /* ---------- player ---------- */
@@ -288,16 +294,35 @@ main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) +
 .player-msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; pointer-events: none; }
 .player-msg div { background: rgba(14,10,20,.85); padding: 16px 18px; border-radius: 14px; max-width: 340px; }
 
-/* ---------- controles extras do player (Fase 2) ---------- */
+/* ---------- controles extras do player (Fase 2 + Fase 4) ---------- */
 .pc-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; }
-.pc-btn { min-height: 38px; min-width: 44px; padding: 0 12px; border-radius: 10px; background: var(--surface-2); color: var(--text); font: 700 13px/1 var(--font-body); }
-.pc-btn.on { background: var(--text); color: #120c18; }
+.pc-btn { min-height: 38px; min-width: 44px; padding: 0 12px; border-radius: 10px; background: var(--surface-2); color: var(--text); font: 700 13px/1 var(--font-body); border: 1px solid var(--line); }
+.pc-btn.on { background: var(--text); color: #120c18; border-color: var(--text); }
 .pc-sel select { min-height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); padding: 0 10px; font: 600 13px/1 var(--font-body); }
 .pc-resume { position: absolute; z-index: 4; left: 50%; bottom: 180px; transform: translateX(-50%); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100% - 32px); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .player { position: fixed; }
 .player > video { aspect-ratio: 16 / 9; }
 .player:fullscreen { background: #000; }
+
+/* ---------- melhorias Fase 4 (progresso nos cartões, favoritos TV, busca ao vivo, backup) ---------- */
+.card-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(14,10,20,.75); z-index: 2; }
+.card-prog i { display: block; height: 100%; background: var(--grad); }
+.badge.ep-tag { top: auto; bottom: 8px; left: 7px; background: rgba(14,10,20,.88); color: var(--warm); }
+.chan-wrap { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.chan-fav {
+  position: absolute; top: 6px; left: 6px; z-index: 3; width: 30px; height: 30px;
+  border-radius: 50%; background: rgba(14,10,20,.78); color: var(--muted);
+  display: grid; place-items: center; font-size: 15px; line-height: 1;
+}
+.chan-fav.on { color: var(--warm); }
+.live-toolbar { display: grid; gap: 10px; margin-bottom: 8px; }
+.prov-link { text-decoration: none; color: inherit; transition: transform .15s ease; }
+.prov-link:hover, .prov-link:active { transform: scale(1.05); color: var(--warm); }
+.quick-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.quick-links .btn { min-height: 38px; padding: 0 13px; font-size: 13px; text-decoration: none; }
+.backup-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.backup-row .btn { flex: 1 1 140px; }
 
 /* ---------- ajustes ---------- */
 .form { display: grid; gap: 14px; }
@@ -337,4 +362,46 @@ main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) +
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- acabamento profissional Desktop, TV Box & Mobile (v3.1) ---------- */
+.topbar-nav { display: none; align-items: center; gap: 6px; }
+.topbar-nav button {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px;
+  border-radius: 99px; font-size: 13.5px; font-weight: 600; color: var(--muted);
+  transition: background .18s ease, color .18s ease;
+}
+.topbar-nav button svg { width: 18px; height: 18px; fill: currentColor; }
+.topbar-nav button:hover { color: var(--text); background: rgba(255,255,255,.06); }
+.topbar-nav button.active { color: #120c18; background: var(--grad); font-weight: 700; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.version-pill {
+  font: 700 11px/1 var(--font-body); padding: 5px 9px; border-radius: 99px;
+  background: rgba(255,176,48,.14); color: var(--warm); border: 1px solid rgba(255,176,48,.3);
+}
+.card .poster { transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease; }
+.card:hover .poster, .card:focus-visible .poster {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 28px rgba(0,0,0,.55), 0 0 0 1px rgba(255,176,48,.35);
+}
+.btn { transition: transform .15s ease, filter .15s ease, background .15s ease; }
+.btn:hover { filter: brightness(1.08); }
+.chip { transition: background .15s ease, color .15s ease, border-color .15s ease; }
+.chip:hover:not(.on) { border-color: var(--muted); }
+
+@media (min-width: 860px) {
+  .topbar-nav { display: flex; }
+  .tabbar { display: none; }
+  main { padding-bottom: 48px; max-width: 1440px; margin: 0 auto; }
+  .hero-slide { height: min(76vh, 620px); }
+  .hero-name { font-size: 38px; }
+  .hero-info { max-width: 640px; bottom: 44px; }
+  .sheet {
+    inset: 24px auto 24px auto; left: 50%; transform: translateX(-50%);
+    width: min(920px, calc(100vw - 48px)); border-radius: 22px;
+    border: 1px solid var(--line); box-shadow: 0 24px 80px rgba(0,0,0,.85);
+  }
+  @keyframes up { from { transform: translate(-50%, 4%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  .sheet-close { position: sticky; float: right; top: 14px; right: 14px; margin: 12px 12px -56px 0; }
+  .sheet-back { float: left; left: 14px; right: auto; margin: 12px 0 -56px 12px; }
 }
